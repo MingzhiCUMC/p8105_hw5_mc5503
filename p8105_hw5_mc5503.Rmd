@@ -14,6 +14,8 @@ library(tidyverse)
 library(purrr)
 ```
 # Problem 1
+
+## data operations
 ```{r}
 data1=read_csv("data/homicide-data.csv")|>janitor::clean_names()
 str(data1)
@@ -22,7 +24,7 @@ time_range=range(data1|>pull(reported_date))
 ```
 There are 52179 observations from `r as.Date(as.character(time_range[1]),format = "%Y%m%d")` to `r as.Date(as.character(time_range[2]),format = "%Y%m%d")`. There are `r ncol(data1)` variables, containing the time, location of each homicide and demographic characteristics of victim. There are total `r length(unique(data1|>pull(city)))` cities included in the data.
 
-
+## calculate for Baltimore
 ```{r}
 data1=data1|>mutate(city_state=paste(city,state,sep = ","))
 
@@ -44,4 +46,49 @@ conf_low
 
 conf_high
 ```
-The proportion of unsolved (unarrested) homicide in Baltimore is `r p_est`, with CI is [`r c(conf_low,conf_high)`].
+
+The proportion of unsolved (unarrested) homicide in Baltimore is `r p_est`, and the CI is [`r c(conf_low,conf_high)`].
+
+## calculate for all cities
+```{r}
+prop_f=function(city_name)
+{
+  n_obs=nrow(data1|>filter(city==city_name))
+
+  n_arrest=nrow(data1|>filter(city==city_name & disposition!="Closed by arrest"))
+
+  result=prop.test(x=n_arrest,n=n_obs)
+
+  p_est=broom::tidy(result)|>pull(estimate)
+
+  conf_low=broom::tidy(result)|>pull(conf.low)
+
+  conf_high=broom::tidy(result)|>pull(conf.high)
+  
+  tibble(p_est,conf_low,conf_high)
+}
+
+#prop_f("Baltimore")
+
+city_list=unique(data1|>pull(city))
+
+output = vector("list", length = length(city_list))
+
+output=map(city_list,prop_f)
+
+#data_nest=nest(data1, data = c(-city))
+
+prop_results=tibble(city_list,output)|>unnest(cols = output)
+```
+
+## plots
+```{r}
+prop_results|>
+  mutate(city_list=forcats::fct_reorder(city_list,p_est))|>
+  ggplot(aes(x=city_list,y=p_est,ymin=conf_low,ymax=conf_high,color=city_list))+
+  geom_point()+
+  geom_errorbar()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = .5))+
+  theme(legend.position="none")
+```
+
