@@ -92,3 +92,24 @@ prop_results|>
   theme(legend.position="none")
 ```
 
+# Problem 2
+## 
+```{r,warning=FALSE,message=FALSE}
+file_names=list.files("data/data_long")
+
+setwd("data/data_long")
+
+data2=tibble(
+  file_names,
+  results=map(file_names,read_csv)
+)|>unnest()|>
+  separate(file_names,c("arm","id"))|>
+  pivot_longer(week_1:week_8,
+               names_to = "time",
+               values_to = "value")|>
+  separate(time,c("unit","week"))|>
+  select(arm,id,week,value)
+
+(data2)
+```
+
